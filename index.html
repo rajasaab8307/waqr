@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WhatsApp QR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue: #1a73e8; --red: #ea4335; --yellow: #fbbc04; --green: #34a853;
+    --bg: #f6f8fc; --card: #ffffff; --tonal: #e8f0fe; --on-tonal: #174ea6;
+    --text: #1f1f1f; --muted: #5f6368; --outline: #dadce0; --outline-strong: #80868b;
+    --primary: #1a73e8; --on-primary: #ffffff; --hover: rgba(26,115,232,.08);
+    --shadow: 0 1px 2px rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15);
+    --shadow-up: 0 2px 6px 2px rgba(60,64,67,.15), 0 1px 2px rgba(60,64,67,.3);
+    --ease: cubic-bezier(.2, 0, 0, 1);
+    color-scheme: light;
+  }
+  [data-theme="dark"] {
+    --bg: #131314; --card: #1e1f20; --tonal: #2b3a55; --on-tonal: #d3e3fd;
+    --text: #e3e3e3; --muted: #9aa0a6; --outline: #3c4043; --outline-strong: #8e918f;
+    --primary: #a8c7fa; --on-primary: #062e6f; --hover: rgba(168,199,250,.1);
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 1px 3px 1px rgba(0,0,0,.35);
+    --shadow-up: 0 2px 8px 2px rgba(0,0,0,.45);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    height: 100dvh; overflow: hidden; display: flex; flex-direction: column;
+    background: var(--bg); color: var(--text);
+    font-family: 'Roboto', system-ui, sans-serif; font-size: 15px; line-height: 1.5;
+    transition: background .35s var(--ease), color .35s var(--ease);
+  }
+  h1, h2, h3, .brand b { font-family: 'Outfit', 'Google Sans', 'Roboto', sans-serif; font-weight: 500; }
+
+  /* ambient background */
+  .blob { position: fixed; border-radius: 50%; filter: blur(90px); opacity: .22; z-index: 0; pointer-events: none; }
+  .blob.b1 { width: 380px; height: 380px; background: var(--blue); top: -120px; left: -80px; animation: drift1 18s ease-in-out infinite alternate; }
+  .blob.b2 { width: 320px; height: 320px; background: var(--yellow); top: 30%; right: -100px; animation: drift2 22s ease-in-out infinite alternate; }
+  .blob.b3 { width: 300px; height: 300px; background: var(--green); bottom: -120px; left: 30%; animation: drift1 26s ease-in-out infinite alternate-reverse; }
+  [data-theme="dark"] .blob { opacity: .12; }
+  @keyframes drift1 { to { transform: translate(120px, 80px) scale(1.15); } }
+  @keyframes drift2 { to { transform: translate(-140px, -60px) scale(.9); } }
+
+  /* top progress */
+  .progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 60; opacity: 0; pointer-events: none; }
+  .progress::before { content: ""; position: absolute; inset: 0; transform-origin: left; transform: scaleX(0);
+    background: linear-gradient(90deg, var(--red), var(--yellow), var(--green), var(--blue)); }
+  .progress.run { animation: pfade .9s linear forwards; }
+  .progress.run::before { animation: pgrow .8s var(--ease) forwards; }
+  @keyframes pgrow { to { transform: scaleX(1); } }
+  @keyframes pfade { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+  /* app bar */
+  .appbar { position: relative; z-index: 40; flex: none; display: flex; align-items: center; gap: 8px; padding: 10px 20px; }
+  .brand { display: flex; align-items: center; gap: 12px; flex: 1; }
+  .mark { width: 30px; height: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; transform: rotate(-8deg); transition: transform .5s var(--ease); }
+  .mark:hover { transform: rotate(12deg) scale(1.08); }
+  .mark i { border-radius: 6px; }
+  .mark i:nth-child(1) { background: var(--blue); border-top-left-radius: 12px; }
+  .mark i:nth-child(2) { background: var(--red); border-top-right-radius: 12px; }
+  .mark i:nth-child(3) { background: var(--green); border-bottom-left-radius: 12px; }
+  .mark i:nth-child(4) { background: var(--yellow); border-bottom-right-radius: 12px; }
+  .brand b { font-size: 21px; color: var(--muted); font-weight: 400; letter-spacing: -.2px; }
+  .brand b em { font-style: normal; color: var(--text); font-weight: 500; }
+
+  /* buttons */
+  .btn, .icon-btn { position: relative; overflow: hidden; font: inherit; cursor: pointer; border: 0;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: box-shadow .2s var(--ease), background .2s, transform .15s var(--ease), opacity .2s; }
+  .btn { height: 40px; padding: 0 20px; border-radius: 20px; font-weight: 500; font-size: 14px; letter-spacing: .1px; }
+  .btn svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+  .btn.filled { background: var(--primary); color: var(--on-primary); }
+  .btn.filled:hover:not(:disabled) { box-shadow: var(--shadow); }
+  .btn.tonal { background: var(--tonal); color: var(--on-tonal); }
+  .btn.tonal:hover:not(:disabled) { box-shadow: var(--shadow); }
+  .btn.text { background: transparent; color: var(--primary); padding: 0 12px; }
+  .btn.text:hover:not(:disabled) { background: var(--hover); }
+  .btn:active:not(:disabled) { transform: scale(.97); }
+  .btn:disabled { opacity: .38; cursor: not-allowed; box-shadow: none; }
+  .btn:focus-visible, .icon-btn:focus-visible, .pill:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .icon-btn { width: 40px; height: 40px; border-radius: 50%; background: transparent; color: var(--muted); }
+  .icon-btn:hover { background: var(--hover); color: var(--text); }
+  .icon-btn svg { width: 22px; height: 22px; fill: currentColor; }
+  .icon-btn.sm { width: 36px; height: 36px; }
+  .icon-btn.sm svg { width: 20px; height: 20px; }
+  .icon-btn.danger:hover { background: rgba(234,67,53,.1); color: var(--red); }
+  .wave { position: absolute; border-radius: 50%; background: currentColor; opacity: .22; transform: scale(0); animation: wave .6s var(--ease) forwards; pointer-events: none; }
+  @keyframes wave { to { transform: scale(1); opacity: 0; } }
+
+  .saved-btn { position: relative; overflow: visible; }
+  .badge { position: absolute; top: 2px; right: 0; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--red); color: #fff;
+    font-size: 11px; font-weight: 500; display: none; align-items: center; justify-content: center; }
+  .badge.show { display: flex; }
+  .badge.bump { animation: bump .45s var(--ease); }
+  @keyframes bump { 0% { transform: scale(.4); } 60% { transform: scale(1.4); } 100% { transform: none; } }
+
+  #theme .sun { display: none; } #theme .moon { display: block; }
+  [data-theme="dark"] #theme .sun { display: block; } [data-theme="dark"] #theme .moon { display: none; }
+  #theme.spin svg { animation: spin .6s var(--ease); }
+  @keyframes spin { from { transform: rotate(-140deg) scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* single-screen layout */
+  main { position: relative; z-index: 1; flex: 1; min-height: 0; width: 100%; max-width: 1040px; margin: 0 auto;
+    padding: 4px 20px 20px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 20px; }
+  .card { background: var(--card); border-radius: 28px; padding: 28px; box-shadow: var(--shadow); min-height: 0;
+    display: flex; flex-direction: column; transition: box-shadow .3s var(--ease), background .35s var(--ease); }
+  .card:hover { box-shadow: var(--shadow-up); }
+  .form-card { justify-content: center; }
+  .form-card h1 { font-size: clamp(26px, 3.6vw, 40px); font-weight: 400; letter-spacing: -.9px; line-height: 1.1; }
+  .form-card .sub { color: var(--muted); margin: 8px 0 22px; max-width: 44ch; }
+
+  .rise { opacity: 0; transform: translateY(18px); animation: rise .7s var(--ease) forwards; }
+  main .rise:nth-child(2) { animation-delay: .1s; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+
+  /* outlined fields with floating label */
+  .field { position: relative; margin-bottom: 14px; }
+  .field input, .field textarea, .field select {
+    width: 100%; font: inherit; color: var(--text); background: transparent;
+    border: 1px solid var(--outline-strong); border-radius: 12px; padding: 22px 16px 8px;
+    outline: none; transition: border-color .2s, box-shadow .2s; appearance: none; -webkit-appearance: none; }
+  .field textarea { resize: none; height: 64px; display: block; }
+  .field select { cursor: pointer; padding-right: 32px; }
+  .field select option { background: var(--card); color: var(--text); }
+  .field:hover input, .field:hover textarea, .field:hover select { border-color: var(--text); }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+  .field label { position: absolute; left: 16px; top: 16px; color: var(--muted); pointer-events: none; transform-origin: left top;
+    transition: transform .2s var(--ease), color .2s; }
+  .field input:focus + label, .field textarea:focus + label, .field select:focus + label { color: var(--primary); }
+  .field input:focus + label, .field input:not(:placeholder-shown) + label,
+  .field textarea:focus + label, .field textarea:not(:placeholder-shown) + label,
+  .field.up label { transform: translateY(-9px) scale(.75); }
+  .field.sel::after { content: ""; position: absolute; right: 14px; top: 26px; border: 5px solid transparent; border-top-color: var(--muted); pointer-events: none; }
+  .phone { display: grid; grid-template-columns: 132px 1fr; gap: 10px; }
+  .phone .field { margin-bottom: 0; }
+  .hint { min-height: 20px; margin: 6px 4px 12px; font-size: 12.5px; color: var(--muted); transition: color .2s; }
+  .hint.err { color: var(--red); animation: shake .35s; }
+  @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+
+  /* QR card */
+  .qr-card h2 { font-size: 20px; margin-bottom: 8px; flex: none; }
+  .qr-card { text-align: center; }
+  .qr-card h2 { text-align: left; }
+  .lens-wrap { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; margin: 4px 0 12px; }
+  .lens { position: relative; width: min(100cqw, 100cqh, 320px); height: min(100cqw, 100cqh, 320px); display: grid; place-items: center; }
+  .lens .c { position: absolute; width: 32px; height: 32px; border: 4px solid; }
+  .lens .c.tl { top: 0; left: 0; border-color: var(--blue) transparent transparent var(--blue); border-top-left-radius: 14px; }
+  .lens .c.tr { top: 0; right: 0; border-color: var(--red) var(--red) transparent transparent; border-top-right-radius: 14px; }
+  .lens .c.br { bottom: 0; right: 0; border-color: transparent var(--yellow) var(--yellow) transparent; border-bottom-right-radius: 14px; }
+  .lens .c.bl { bottom: 0; left: 0; border-color: transparent transparent var(--green) var(--green); border-bottom-left-radius: 14px; }
+  .lens.live .c { animation: focus .5s var(--ease); }
+  @keyframes focus { 0% { transform: scale(1.16); } 100% { transform: none; } }
+  .qr-slot { width: calc(100% - 40px); height: calc(100% - 40px); background: #fff; border-radius: 16px; display: grid; place-items: center; position: relative; overflow: hidden; padding: 10px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.06); }
+  #qr { width: 100%; height: 100%; display: none; place-items: center; }
+  #qr canvas { width: 100%; height: 100%; display: block; }
+  .lens.live #qr { display: grid; animation: pop .5s var(--ease); }
+  @keyframes pop { 0% { opacity: 0; transform: scale(.86); filter: blur(6px); } 100% { opacity: 1; transform: none; filter: none; } }
+  .scan { position: absolute; left: 0; right: 0; top: 0; height: 3px; opacity: 0; pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--blue), transparent); box-shadow: 0 0 14px 2px rgba(26,115,232,.6); }
+  .scan.run { animation: sweep .9s var(--ease); }
+  @keyframes sweep { 0% { top: 0; opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+  .idle { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; width: 100%; }
+  .lens.live .idle { display: none; }
+  .idle span { aspect-ratio: 1; border-radius: 4px; opacity: 0; animation: blink 2.6s ease-in-out infinite; }
+  @keyframes blink { 0%, 100% { opacity: .08; transform: scale(.8); } 50% { opacity: .9; transform: scale(1); } }
+  .cap { color: var(--muted); font-size: 13px; margin-bottom: 10px; min-height: 20px; flex: none; }
+  .pill { flex: none; display: flex; align-items: center; gap: 8px; max-width: 100%; margin: 0 auto 12px; padding: 7px 8px 7px 16px; width: fit-content;
+    border-radius: 20px; background: var(--bg); color: var(--muted); font-size: 12.5px; cursor: pointer; border: 0; font-family: inherit; transition: background .2s, opacity .2s; }
+  .pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+  .pill:hover:not(:disabled) { background: var(--hover); }
+  .pill:disabled { opacity: .45; cursor: default; }
+  .pill svg { width: 16px; height: 16px; fill: currentColor; flex: none; }
+  .qr-actions { flex: none; display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+
+  /* saved drawer */
+  .veil { position: fixed; inset: 0; z-index: 84; background: rgba(0,0,0,.4); opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s; }
+  .veil.open { opacity: 1; visibility: visible; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 85; width: min(400px, 100%); background: var(--card);
+    border-radius: 28px 0 0 28px; box-shadow: var(--shadow-up); display: flex; flex-direction: column;
+    transform: translateX(105%); transition: transform .4s var(--ease), visibility .4s; visibility: hidden; }
+  .drawer.open { transform: none; visibility: visible; }
+  .drawer header { display: flex; align-items: center; justify-content: space-between; padding: 20px 12px 8px 24px; flex: none; }
+  .drawer h2 { font-size: 20px; }
+  .list { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 20px; display: grid; gap: 10px; align-content: start; }
+  .empty { color: var(--muted); padding: 8px; }
+  .item { display: flex; align-items: center; gap: 12px; padding: 12px 8px 12px 14px; border-radius: 20px; background: var(--bg);
+    transition: transform .25s var(--ease), box-shadow .25s var(--ease), opacity .22s; }
+  .item:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+  .item.in { animation: slidein .45s var(--ease); }
+  .item.out { opacity: 0; transform: scale(.9); }
+  @keyframes slidein { from { opacity: 0; transform: translateY(14px) scale(.96); } }
+  .avatar { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 500 18px 'Outfit', sans-serif; flex: none; }
+  .meta { flex: 1; min-width: 0; cursor: pointer; }
+  .meta b { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meta small { color: var(--muted); font-size: 13px; }
+
+  /* snackbar */
+  .snack { position: fixed; left: 24px; bottom: 24px; z-index: 95; background: #303030; color: #f1f1f1; padding: 14px 20px; border-radius: 8px;
+    font-size: 14px; box-shadow: var(--shadow-up); transform: translateY(90px); opacity: 0; transition: transform .3s var(--ease), opacity .3s; max-width: calc(100% - 48px); }
+  .snack.show { transform: none; opacity: 1; }
+
+  /* dialog */
+  .scrim { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(0,0,0,.45);
+    opacity: 0; visibility: hidden; transition: opacity .25s, visibility .25s; padding: 20px; }
+  .scrim.open { opacity: 1; visibility: visible; }
+  .dialog { background: var(--card); border-radius: 28px; padding: 28px; width: min(100%, 340px); text-align: center; transform: scale(.88) translateY(12px); transition: transform .35s var(--ease); box-shadow: var(--shadow-up); }
+  .scrim.open .dialog { transform: none; }
+  .dialog h3 { font-size: 20px; margin: 18px 0 6px; font-weight: 500; }
+  .dialog p { color: var(--muted); font-size: 14px; margin-bottom: 18px; word-break: break-word; }
+  .spinner { width: 52px; height: 52px; margin: 0 auto; }
+  .spinner svg { width: 100%; height: 100%; animation: rot 1.4s linear infinite; }
+  .spinner circle { fill: none; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 1, 200; stroke-dashoffset: 0;
+    animation: dash 1.5s ease-in-out infinite, hue 5.6s ease-in-out infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  @keyframes dash { 0% { stroke-dasharray: 1, 200; stroke-dashoffset: 0; } 50% { stroke-dasharray: 89, 200; stroke-dashoffset: -35px; } 100% { stroke-dasharray: 89, 200; stroke-dashoffset: -124px; } }
+  @keyframes hue { 0%, 100% { stroke: #ea4335; } 25% { stroke: #1a73e8; } 50% { stroke: #fbbc04; } 75% { stroke: #34a853; } }
+
+  [hidden] { display: none !important; }
+
+  /* collect switch */
+  .switch { position: relative; display: flex; align-items: center; gap: 12px; margin: 0 0 14px; cursor: pointer; font-size: 14px; user-select: none; }
+  .switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .track { width: 44px; height: 26px; border-radius: 13px; border: 2px solid var(--outline-strong); position: relative; flex: none; transition: background .2s, border-color .2s; }
+  .thumb { position: absolute; top: 50%; left: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--outline-strong);
+    transform: translateY(-50%); transition: left .25s var(--ease), width .2s, height .2s, background .2s; }
+  .switch input:checked + .track { background: var(--primary); border-color: var(--primary); }
+  .switch input:checked + .track .thumb { left: 22px; width: 18px; height: 18px; background: var(--on-primary); }
+  .switch input:focus-visible + .track { outline: 2px solid var(--primary); outline-offset: 3px; }
+  .hint.warn { color: #b06000; }
+  [data-theme="dark"] .hint.warn { color: #fdd663; }
+
+  /* drawer tabs */
+  .seg { display: flex; margin: 0 16px 8px; border: 1px solid var(--outline-strong); border-radius: 20px; overflow: hidden; flex: none; }
+  .seg button { flex: 1; border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 500; padding: 9px 12px; cursor: pointer; transition: background .2s, color .2s; }
+  .seg button.on { background: var(--tonal); color: var(--on-tonal); }
+  .tools { display: flex; justify-content: flex-end; gap: 4px; padding: 0 12px; flex: none; }
+  .tools[hidden] { display: none; }
+  .meta .when { display: block; font-size: 12px; color: var(--muted); opacity: .85; }
+  .mini { width: 28px; height: 28px; margin: 0 auto 6px; }
+  .mini svg { width: 100%; height: 100%; animation: rot 1.4s linear infinite; }
+  .mini circle { fill: none; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 1, 200; animation: dash 1.5s ease-in-out infinite, hue 5.6s ease-in-out infinite; }
+  .state { text-align: center; color: var(--muted); padding: 24px 12px; font-size: 14px; }
+
+  /* settings dialog */
+  .dialog.wide { width: min(100%, 460px); text-align: left; max-height: 90dvh; overflow-y: auto; }
+  .dialog.wide h3 { margin-top: 0; margin-bottom: 16px; }
+  .help { font-size: 13px; color: var(--muted); margin: 0 0 14px; }
+  .srow { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+  /* scanner screen (what people see after scanning) */
+  .scan-view { display: none; }
+  body.scanner main, body.scanner .owner-only { display: none !important; }
+  body.scanner .scan-view { display: grid; place-items: center; flex: 1; min-height: 0; padding: 8px 16px 20px; position: relative; z-index: 1; }
+  .scan-card { width: min(100%, 440px); background: var(--card); border-radius: 28px; padding: 28px; box-shadow: var(--shadow); animation: rise .6s var(--ease) both; }
+  .scan-card h1 { font-size: 28px; font-weight: 400; letter-spacing: -.6px; line-height: 1.15; }
+  .scan-card .sub { color: var(--muted); font-size: 14px; margin: 8px 0 20px; }
+  .scan-card .actions { margin-top: 8px; }
+  .scan-card .actions .btn.filled { flex: 1; }
+
+  /* shorter screens */
+  @media (max-height: 720px) {
+    .card { padding: 20px 24px; }
+    .form-card .sub { margin-bottom: 14px; }
+    .field { margin-bottom: 10px; }
+    .field textarea { height: 52px; }
+    .hint { margin-bottom: 8px; }
+  }
+  @media (max-height: 600px) { .form-card .sub, .cap { display: none; } }
+
+  /* phones and narrow windows: stacked, still no scroll */
+  @media (max-width: 820px) {
+    .appbar { padding: 8px 12px; }
+    main { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); gap: 10px; padding: 2px 12px calc(12px + env(safe-area-inset-bottom, 0px)); }
+    .card { border-radius: 24px; padding: 16px; }
+    .form-card .sub, .qr-card h2, .cap { display: none; }
+    .form-card h1 { font-size: 24px; margin-bottom: 12px; }
+    .field { margin-bottom: 8px; }
+    .field textarea { height: 48px; }
+    .phone { grid-template-columns: 112px 1fr; gap: 8px; }
+    .hint { margin: 4px 4px 6px; min-height: 16px; }
+    .actions .btn { flex: 1; padding: 0 12px; }
+    .lens-wrap { margin: 0 0 8px; }
+    .snack { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+    .drawer { border-radius: 0; }
+  }
+  @media (max-width: 820px) and (max-height: 700px) {
+    .form-card h1 { display: none; }
+    .field textarea { height: 44px; }
+    .field input, .field select { padding-top: 20px; padding-bottom: 6px; }
+    .pill { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    .rise { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+<div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+<div class="progress" id="progress"></div>
+
+<header class="appbar">
+  <div class="brand">
+    <div class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <b>WhatsApp <em>QR</em></b>
+  </div>
+  <button class="icon-btn saved-btn ripple owner-only" id="openSaved" aria-label="Saved contacts" title="Saved contacts">
+    <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+    <span class="badge" id="badge">0</span>
+  </button>
+  <button class="icon-btn ripple owner-only" id="openSettings" aria-label="Settings" title="Settings">
+    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+  </button>
+  <button class="icon-btn ripple" id="theme" aria-label="Switch theme" title="Switch theme">
+    <svg class="moon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+    <svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+  </button>
+</header>
+
+<main class="owner-only">
+  <section class="card form-card rise">
+    <h1>Scan once. Start chatting.</h1>
+    <p class="sub">Type a number to get a WhatsApp QR code, save the contact and jump into the chat.</p>
+
+    <div class="field">
+      <input id="name" type="text" placeholder=" " autocomplete="off">
+      <label for="name">Contact name</label>
+    </div>
+
+    <div class="phone">
+      <div class="field sel up">
+        <select id="cc" aria-label="Country code">
+          <option value="91" selected>+91 India</option>
+          <option value="1">+1 US/CA</option>
+          <option value="44">+44 UK</option>
+          <option value="61">+61 AU</option>
+          <option value="971">+971 UAE</option>
+          <option value="966">+966 KSA</option>
+          <option value="92">+92 PK</option>
+          <option value="880">+880 BD</option>
+          <option value="94">+94 LK</option>
+          <option value="977">+977 NP</option>
+          <option value="65">+65 SG</option>
+          <option value="49">+49 DE</option>
+          <option value="33">+33 FR</option>
+        </select>
+        <label>Code</label>
+      </div>
+      <div class="field">
+        <input id="num" type="tel" inputmode="numeric" placeholder=" " autocomplete="off">
+        <label for="num">WhatsApp number</label>
+      </div>
+    </div>
+    <div id="hint" class="hint"></div>
+
+    <div class="field">
+      <textarea id="msg" placeholder=" "></textarea>
+      <label for="msg">Pre-filled message (optional)</label>
+    </div>
+
+    <label class="switch" for="collect">
+      <input type="checkbox" id="collect">
+      <span class="track"><span class="thumb"></span></span>
+      <span>Also collect the scanner's contact</span>
+    </label>
+
+    <div class="actions">
+      <button id="go" class="btn filled ripple" disabled>
+        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>Save and open chat
+      </button>
+      <button id="save" class="btn tonal ripple" disabled>
+        <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>Save contact
+      </button>
+    </div>
+  </section>
+
+  <section class="card qr-card rise">
+    <h2>Your QR code</h2>
+    <div class="lens-wrap">
+      <div class="lens" id="lens">
+        <i class="c tl"></i><i class="c tr"></i><i class="c br"></i><i class="c bl"></i>
+        <div class="qr-slot">
+          <div class="idle" id="idle" aria-hidden="true"></div>
+          <div id="qr"></div>
+          <div class="scan" id="scan"></div>
+        </div>
+      </div>
+    </div>
+    <div class="cap" id="cap">Your code shows up here as you type.</div>
+    <button class="pill" id="pill" disabled title="Copy link">
+      <span id="link">wa.me/…</span>
+      <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+    </button>
+    <div class="qr-actions">
+      <button id="dl" class="btn tonal ripple" disabled>
+        <svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>PNG
+      </button>
+      <button id="vcf" class="btn tonal ripple" disabled>
+        <svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Contact card
+      </button>
+      <button id="testScan" class="btn tonal ripple" hidden>
+        <svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>Test scan
+      </button>
+    </div>
+  </section>
+</main>
+
+<div class="veil" id="veil"></div>
+<aside class="drawer" id="drawer" aria-label="Saved contacts" aria-hidden="true">
+  <header>
+    <h2>Saved contacts</h2>
+    <button class="icon-btn ripple" id="closeSaved" aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </header>
+  <div class="seg" id="seg" role="tablist">
+    <button role="tab" class="on" data-tab="saved">Saved</button>
+    <button role="tab" data-tab="scanned">Scanned <span id="scanCount"></span></button>
+  </div>
+  <div class="tools" id="tools" hidden>
+    <button class="btn text ripple" id="refresh">Refresh</button>
+    <button class="btn text ripple" id="exportAll">Export .vcf</button>
+  </div>
+  <div id="list" class="list"></div>
+</aside>
+
+<section class="scan-view" id="scanView">
+  <div class="scan-card">
+    <h1 id="svTitle">Start a WhatsApp chat</h1>
+    <p class="sub" id="svSub"></p>
+    <div class="field">
+      <input id="svName" type="text" placeholder=" " autocomplete="name">
+      <label for="svName">Your name</label>
+    </div>
+    <div class="phone">
+      <div class="field sel up">
+        <select id="svCc" aria-label="Country code"></select>
+        <label>Code</label>
+      </div>
+      <div class="field">
+        <input id="svNum" type="tel" inputmode="numeric" placeholder=" " autocomplete="tel-national">
+        <label for="svNum">Your WhatsApp number</label>
+      </div>
+    </div>
+    <div id="svHint" class="hint"></div>
+    <div class="actions">
+      <button id="svGo" class="btn filled ripple">
+        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>Continue to WhatsApp
+      </button>
+      <button id="svSkip" class="btn text ripple">Skip, just chat</button>
+    </div>
+  </div>
+</section>
+
+<div class="scrim" id="sScrim" aria-hidden="true">
+  <div class="dialog wide" role="dialog" aria-modal="true" aria-labelledby="sTitle">
+    <h3 id="sTitle">Contact collection</h3>
+    <div class="field">
+      <input id="sPage" type="url" placeholder=" " autocomplete="off">
+      <label for="sPage">Link where this page is hosted</label>
+    </div>
+    <div class="field">
+      <input id="sRelay" type="url" placeholder=" " autocomplete="off">
+      <label for="sRelay">Relay server (leave empty for ntfy.sh)</label>
+    </div>
+    <p class="help">Scanners open your hosted page, enter their name and number, then land in your chat. Their details are encrypted so only this browser can read them, and show up in the Scanned tab while this page is open (or when you reopen it within 12 hours). The name and number also go into the WhatsApp message as a backup. Clearing this browser's data deletes your key.</p>
+    <div class="srow">
+      <button class="btn text ripple" id="sClose">Cancel</button>
+      <button class="btn filled ripple" id="sSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="snack" id="snack" role="status" aria-live="polite"></div>
+
+<div class="scrim" id="scrim" aria-hidden="true">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <div class="spinner"><svg viewBox="25 25 50 50"><circle cx="50" cy="50" r="20"/></svg></div>
+    <h3 id="dlgTitle">Opening WhatsApp</h3>
+    <p id="dlgText"></p>
+    <button class="btn text ripple" id="cancel">Cancel</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const E = {
+    name: $('name'), cc: $('cc'), num: $('num'), msg: $('msg'), hint: $('hint'),
+    go: $('go'), save: $('save'), dl: $('dl'), vcf: $('vcf'), pill: $('pill'),
+    qr: $('qr'), lens: $('lens'), scan: $('scan'), cap: $('cap'), link: $('link'),
+    list: $('list'), snack: $('snack'), progress: $('progress'), idle: $('idle'),
+    scrim: $('scrim'), dlgText: $('dlgText'), cancel: $('cancel'), theme: $('theme'),
+    drawer: $('drawer'), veil: $('veil'), badge: $('badge'), openSaved: $('openSaved'), closeSaved: $('closeSaved')
+  };
+  const KEY = 'wa-qr-contacts', THEME_KEY = 'wa-qr-theme';
+  const COLORS = ['#1a73e8', '#ea4335', '#f9ab00', '#34a853'];
+  let current = null, redirectTimer = null, justSaved = null;
+
+  /* ---------- storage (guarded) ---------- */
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } };
+  const store = list => { try { localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch (e) { return false; } };
+
+  /* ---------- theme ---------- */
+  (function initTheme() {
+    let t = null;
+    try { t = localStorage.getItem(THEME_KEY); } catch (e) {}
+    if (!t) t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+  E.theme.addEventListener('click', () => {
+    const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
+    E.theme.classList.remove('spin'); void E.theme.offsetWidth; E.theme.classList.add('spin');
+  });
+
+  /* ---------- ripple ---------- */
+  document.addEventListener('pointerdown', e => {
+    const b = e.target.closest('.ripple');
+    if (!b || b.disabled) return;
+    const r = b.getBoundingClientRect(), s = Math.max(r.width, r.height) * 2;
+    const w = document.createElement('span');
+    w.className = 'wave';
+    w.style.cssText = `width:${s}px;height:${s}px;left:${e.clientX - r.left - s / 2}px;top:${e.clientY - r.top - s / 2}px`;
+    b.appendChild(w);
+    w.addEventListener('animationend', () => w.remove());
+  });
+
+  /* ---------- helpers ---------- */
+  function snack(text) {
+    E.snack.textContent = text;
+    E.snack.classList.add('show');
+    clearTimeout(snack.t);
+    snack.t = setTimeout(() => E.snack.classList.remove('show'), 2400);
+  }
+  function retrigger(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+  function buildPhone() {
+    let d = E.num.value.replace(/\D/g, '');
+    const cc = E.cc.value;
+    if (d.startsWith('00')) d = d.slice(2);
+    if (d.startsWith(cc) && d.length > 10) d = d.slice(cc.length);
+    return cc + d.replace(/^0+/, '');
+  }
+  function buildUrl(phone, message) {
+    let url = 'https://wa.me/' + phone;
+    if (message && message.trim()) url += '?text=' + encodeURIComponent(message.trim());
+    return url;
+  }
+  function colorFor(str) {
+    let h = 0; for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return COLORS[h % COLORS.length];
+  }
+
+  /* ---------- idle placeholder grid ---------- */
+  (function buildIdle() {
+    const pattern = '1110111101010011001111100110101110111';
+    for (let i = 0; i < 49; i++) {
+      const s = document.createElement('span');
+      const on = pattern[i % pattern.length] === '1' || i % 5 === 0;
+      s.style.background = COLORS[(i * 7) % 4];
+      s.style.animationDelay = (Math.random() * 2.4).toFixed(2) + 's';
+      if (!on) s.style.visibility = 'hidden';
+      E.idle.appendChild(s);
+    }
+  })();
+
+  /* ---------- QR ---------- */
+  const ctrls = [E.dl, E.vcf, E.go, E.save, E.pill];
+  function reset(msg) {
+    E.qr.innerHTML = '';
+    E.lens.classList.remove('live');
+    E.cap.textContent = msg || 'Your code shows up here as you type.';
+    E.link.textContent = 'wa.me/…';
+    ctrls.forEach(b => b.disabled = true); X.test.hidden = true;
+    current = null;
+  }
+  /* Google-colored QR: the library only builds the module matrix, we paint it ourselves */
+  const G = { blue: '#1a73e8', red: '#ea4335', green: '#34a853', yellow: '#fbbc04', amber: '#e37400' };
+  function rr(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function makeModel(url) {
+    const L = QRCode.CorrectLevel;
+    // highest error correction first (needed for the center logo), fall back for long links
+    const levels = [['H', L.H], ['Q', L.Q], ['M', L.M], ['L', L.L]];
+    for (const [name, lvl] of levels) {
+      try {
+        const q = new QRCode(document.createElement('div'), { text: url, width: 64, height: 64, correctLevel: lvl });
+        if (q._oQRCode) return { model: q._oQRCode, logo: name === 'H' || name === 'Q' };
+      } catch (e) { /* too long for this level, try the next */ }
+    }
+    return null;
+  }
+  function paintQR(canvas, model, withLogo) {
+    const n = model.getModuleCount(), quiet = 2, total = n + quiet * 2;
+    const cell = Math.max(10, Math.floor(900 / total));
+    canvas.width = canvas.height = total * cell;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const half = n / 2;
+    const colorAt = (r, c) => r < half ? (c < half ? G.blue : G.red) : (c < half ? G.green : G.amber);
+    const isFinder = (r, c) => (r < 7 && c < 7) || (r < 7 && c >= n - 7) || (r >= n - 7 && c < 7);
+    const gap = cell * 0.07;
+
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        if (isFinder(r, c) || !model.isDark(r, c)) continue;
+        ctx.fillStyle = colorAt(r, c);
+        rr(ctx, (c + quiet) * cell + gap, (r + quiet) * cell + gap, cell - gap * 2, cell - gap * 2, cell * 0.34);
+        ctx.fill();
+      }
+    }
+    [[0, 0, G.blue], [0, n - 7, G.red], [n - 7, 0, G.green]].forEach(([r, c, col]) => {
+      const x = (c + quiet) * cell, y = (r + quiet) * cell;
+      ctx.fillStyle = col; rr(ctx, x, y, 7 * cell, 7 * cell, 2.4 * cell); ctx.fill();
+      ctx.fillStyle = '#ffffff'; rr(ctx, x + cell, y + cell, 5 * cell, 5 * cell, 1.4 * cell); ctx.fill();
+      ctx.fillStyle = col; rr(ctx, x + 2 * cell, y + 2 * cell, 3 * cell, 3 * cell, 1.1 * cell); ctx.fill();
+    });
+
+    if (withLogo) {
+      let side = Math.round(n * 0.2); if (side % 2 === 0) side++; side = Math.max(side, 5);
+      const s = side * cell, x = (canvas.width - s) / 2, y = x;
+      ctx.fillStyle = '#ffffff'; rr(ctx, x, y, s, s, cell * 1.3); ctx.fill();
+      const m = s * 0.62, g = m * 0.12, t = (m - g) / 2, ox = x + (s - m) / 2, oy = y + (s - m) / 2;
+      [[0, 0, G.blue], [1, 0, G.red], [0, 1, G.green], [1, 1, G.yellow]].forEach(([i, j, col]) => {
+        ctx.fillStyle = col; rr(ctx, ox + i * (t + g), oy + j * (t + g), t, t, t * 0.3); ctx.fill();
+      });
+    }
+  }
+  function drawQR(url) {
+    E.qr.innerHTML = '';
+    if (typeof QRCode === 'undefined') { E.cap.textContent = 'QR library failed to load. Check your connection.'; return false; }
+    const made = makeModel(url);
+    if (!made) { E.cap.textContent = 'Message is too long for a QR code. Shorten it.'; return false; }
+    const canvas = document.createElement('canvas');
+    paintQR(canvas, made.model, made.logo);
+    E.qr.appendChild(canvas);
+    return true;
+  }
+  let lastUrl = '';
+  function update() {
+    const phone = buildPhone();
+    const national = phone.length - E.cc.value.length;
+    E.hint.className = 'hint';
+    if (!E.num.value.trim()) { E.hint.textContent = ''; lastUrl = ''; reset(); return; }
+    if (national < 6 || phone.length > 15) {
+      E.hint.textContent = 'Enter 6 to 12 digits after the country code.';
+      E.hint.classList.add('err');
+      lastUrl = ''; reset('Waiting for a valid number');
+      return;
+    }
+    E.hint.textContent = 'Chat number: +' + phone;
+    if (X.collect.checked && !pageOk()) {
+      E.hint.textContent = 'Add your hosted page link in Settings to collect contacts. Showing a direct chat code for now.';
+      E.hint.classList.add('warn');
+    }
+    const url = qrTarget(phone, E.msg.value);
+    current = { name: E.name.value.trim(), phone, message: E.msg.value.trim(), url, chatUrl: buildUrl(phone, E.msg.value) };
+    if (url !== lastUrl) {
+      lastUrl = url;
+      if (!drawQR(url)) { const m = E.cap.textContent; lastUrl = ''; reset(m); return; }
+      E.lens.classList.remove('live'); void E.lens.offsetWidth; E.lens.classList.add('live');
+      retrigger(E.scan, 'run');
+      retrigger(E.progress, 'run');
+    }
+    E.cap.textContent = (X.collect.checked && pageOk()) ? 'Scanners share their contact, then open your chat' : 'Point your phone camera at the code';
+    E.link.textContent = url.replace('https://', '');
+    ctrls.forEach(b => b.disabled = false); X.test.hidden = !(X.collect.checked && pageOk());
+  }
+
+  /* ---------- settings, collect mode, scanned contacts ---------- */
+  const SKEY = 'wa-qr-settings', LKEY = 'wa-qr-leads';
+  const defaultPage = /^https?:$/.test(location.protocol) ? location.origin + location.pathname : '';
+  const settings = { page: '', relay: '', collect: false, priv: null, pub: '', topic: '' };
+  try { Object.assign(settings, JSON.parse(localStorage.getItem(SKEY)) || {}); } catch (e) {}
+  if (!settings.page) settings.page = defaultPage;
+  const saveSettings = () => { try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch (e) {} };
+  const X = {
+    collect: $('collect'), openSettings: $('openSettings'), sScrim: $('sScrim'), sPage: $('sPage'), sRelay: $('sRelay'),
+    sSave: $('sSave'), sClose: $('sClose'), test: $('testScan'),
+    seg: $('seg'), tools: $('tools'), refresh: $('refresh'), exportAll: $('exportAll'), scanCount: $('scanCount')
+  };
+  let tab = 'saved', es = null;
+  const readLeads = () => { try { return JSON.parse(localStorage.getItem(LKEY)) || []; } catch (e) { return []; } };
+  let leads = readLeads();
+  const seen = new Set(leads.map(l => l.id));
+  const writeLeads = () => { try { localStorage.setItem(LKEY, JSON.stringify(leads.slice(0, 500))); } catch (e) {} };
+  const updateScanCount = () => { X.scanCount.textContent = leads.length ? '(' + leads.length + ')' : ''; };
+  X.collect.checked = !!settings.collect;
+
+  const pageOk = () => /^https?:\/\//i.test((settings.page || '').trim());
+  const relayBase = () => (settings.relay || 'https://ntfy.sh').trim().replace(/\/+$/, '');
+
+  /*CRYPTO-START*/
+  // Scanner details are sealed with the owner's public key (ECDH P-256 + AES-GCM), so the relay
+  // and other scanners only ever see ciphertext. Only this browser holds the private key.
+  const b64u = {
+    enc: u8 => btoa(String.fromCharCode.apply(null, u8)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+    dec: str => { str = str.replace(/-/g, '+').replace(/_/g, '/'); while (str.length % 4) str += '='; return Uint8Array.from(atob(str), c => c.charCodeAt(0)); }
+  };
+  const ECDH = { name: 'ECDH', namedCurve: 'P-256' };
+  async function sealFor(pubB64, obj) {
+    const peer = await crypto.subtle.importKey('raw', b64u.dec(pubB64), ECDH, false, []);
+    const eph = await crypto.subtle.generateKey(ECDH, true, ['deriveKey']);
+    const aes = await crypto.subtle.deriveKey({ name: 'ECDH', public: peer }, eph.privateKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aes, new TextEncoder().encode(JSON.stringify(obj))));
+    const epk = new Uint8Array(await crypto.subtle.exportKey('raw', eph.publicKey));
+    const out = new Uint8Array(epk.length + iv.length + ct.length);
+    out.set(epk, 0); out.set(iv, epk.length); out.set(ct, epk.length + iv.length);
+    return b64u.enc(out);
+  }
+  async function openSeal(sealed, privJwk) {
+    const b = b64u.dec(sealed);
+    const peer = await crypto.subtle.importKey('raw', b.slice(0, 65), ECDH, false, []);
+    const priv = await crypto.subtle.importKey('jwk', privJwk, ECDH, false, ['deriveKey']);
+    const aes = await crypto.subtle.deriveKey({ name: 'ECDH', public: peer }, priv, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b.slice(65, 77) }, aes, b.slice(77));
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  /*CRYPTO-END*/
+
+  async function ensureKeys() {
+    if (settings.pub && settings.priv && settings.topic) return true;
+    if (!(window.crypto && crypto.subtle)) return false;
+    try {
+      const kp = await crypto.subtle.generateKey(ECDH, true, ['deriveKey']);
+      settings.priv = await crypto.subtle.exportKey('jwk', kp.privateKey);
+      settings.pub = b64u.enc(new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey)));
+      settings.topic = 'wqr' + b64u.enc(crypto.getRandomValues(new Uint8Array(12)));
+      saveSettings();
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // what the QR encodes: the hosted collector page when collecting, otherwise the plain chat link
+  function qrTarget(phone, message) {
+    const direct = buildUrl(phone, message);
+    if (!X.collect.checked || !pageOk()) return direct;
+    const p = new URLSearchParams();
+    p.set('c', phone);
+    if (E.name.value.trim()) p.set('n', E.name.value.trim());
+    if (message && message.trim()) p.set('m', message.trim());
+    if (settings.pub && settings.topic) { p.set('t', settings.topic); p.set('k', settings.pub); }
+    if (settings.relay.trim()) p.set('r', relayBase());
+    return settings.page.trim().split(/[?#]/)[0] + '?' + p.toString();
+  }
+
+  /* receiving scanned contacts */
+  async function ingest(ev, announce) {
+    if (!ev || ev.event !== 'message' || !ev.message || !settings.priv || seen.has(ev.id)) return;
+    seen.add(ev.id);
+    let d;
+    try { d = await openSeal(ev.message, settings.priv); } catch (e) { return; }
+    const phone = String((d && d.phone) || '').replace(/\D/g, '');
+    if (phone.length < 7 || phone.length > 15) return;
+    const name = String(d.name || '').trim().slice(0, 80);
+    leads.unshift({ id: ev.id, t: (ev.time || Math.floor(Date.now() / 1000)) * 1000, name, phone });
+    leads.sort((x, y) => y.t - x.t);
+    writeLeads(); updateScanCount();
+    if (announce) { snack('New contact: ' + (name || '+' + phone)); retrigger(E.badge, 'bump'); }
+    if (tab === 'scanned') renderLeads();
+  }
+  function startListen() {
+    if (es || !settings.topic || !window.EventSource) return;
+    es = new EventSource(relayBase() + '/' + settings.topic + '/sse?since=all');
+    es.onmessage = e => { try { ingest(JSON.parse(e.data), true); } catch (err) {} };
+  }
+  function stopListen() { if (es) { es.close(); es = null; } }
+
+  X.collect.addEventListener('change', async () => {
+    settings.collect = X.collect.checked; saveSettings();
+    if (settings.collect) {
+      const ok = await ensureKeys();
+      if (ok) startListen();
+      if (!pageOk()) { openSettings(); snack('Add the link where this page is hosted'); }
+    }
+    lastUrl = ''; update();
+  });
+  X.test.addEventListener('click', () => { if (current) window.open(current.url, '_blank', 'noopener'); });
+
+  function openSettings() {
+    X.sPage.value = settings.page; X.sRelay.value = settings.relay;
+    X.sScrim.classList.add('open'); X.sScrim.setAttribute('aria-hidden', 'false');
+  }
+  function closeSettings() { X.sScrim.classList.remove('open'); X.sScrim.setAttribute('aria-hidden', 'true'); }
+  X.openSettings.addEventListener('click', openSettings);
+  X.sClose.addEventListener('click', closeSettings);
+  X.sSave.addEventListener('click', () => {
+    settings.page = X.sPage.value.trim(); settings.relay = X.sRelay.value.trim();
+    saveSettings(); closeSettings(); stopListen(); if (settings.collect) startListen();
+    lastUrl = ''; update(); snack('Settings saved');
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSettings(); });
+
+  function normPhone(cc, raw) {
+    let d = raw.replace(/\D/g, '');
+    if (d.startsWith('00')) d = d.slice(2);
+    if (d.startsWith(cc) && d.length > 10) d = d.slice(cc.length);
+    return cc + d.replace(/^0+/, '');
+  }
+  function vcard(name, digits) {
+    const fn = (name || '+' + digits).replace(/[\r\n;,]/g, ' ');
+    return ['BEGIN:VCARD', 'VERSION:3.0', 'FN:' + fn, 'N:' + fn + ';;;;', 'TEL;TYPE=CELL:+' + digits, 'END:VCARD'].join('\r\n');
+  }
+
+  /* scanned tab */
+  const ICON_ADD = '<svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
+  function setTab(t) {
+    tab = t;
+    [...X.seg.children].forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+    X.tools.hidden = t !== 'scanned';
+    if (t === 'saved') renderList(); else loadLeads();
+  }
+  X.seg.addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) setTab(b.dataset.tab); });
+  X.refresh.addEventListener('click', loadLeads);
+
+  function stateMsg(text) {
+    E.list.innerHTML = '';
+    const d = document.createElement('div'); d.className = 'state'; d.textContent = text;
+    E.list.appendChild(d);
+  }
+  async function loadLeads() {
+    if (tab !== 'scanned') return;
+    renderLeads();
+    if (!settings.topic) return;
+    try {
+      const res = await fetch(relayBase() + '/' + settings.topic + '/json?poll=1&since=all');
+      const text = await res.text();
+      for (const line of text.split('\n')) {
+        if (!line.trim()) continue;
+        try { await ingest(JSON.parse(line), true); } catch (e) {}
+      }
+    } catch (e) { snack('Could not reach the relay. Showing saved contacts.'); }
+  }
+  function renderLeads() {
+    E.list.innerHTML = '';
+    if (!leads.length) { stateMsg('Nobody has scanned yet. Turn on contact collection and share your QR. New contacts appear here.'); return; }
+    leads.forEach(r => {
+      const name = (r.name || '').trim() || '+' + r.phone;
+      const el = document.createElement('div'); el.className = 'item';
+      const av = document.createElement('div'); av.className = 'avatar'; av.style.background = colorFor(name);
+      av.textContent = (name.replace(/^\+/, '').charAt(0) || '#').toUpperCase();
+      const meta = document.createElement('div'); meta.className = 'meta'; meta.style.cursor = 'default';
+      const b = document.createElement('b'); b.textContent = name;
+      const s = document.createElement('small'); s.textContent = '+' + r.phone;
+      meta.append(b, s);
+      const when = new Date(r.t);
+      if (!isNaN(when)) { const w = document.createElement('small'); w.className = 'when'; w.textContent = when.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); meta.appendChild(w); }
+      const add = document.createElement('button');
+      add.className = 'icon-btn sm ripple'; add.title = 'Save to contacts'; add.setAttribute('aria-label', 'Save ' + name); add.innerHTML = ICON_ADD;
+      add.addEventListener('click', () => {
+        const list = load(); const i = list.findIndex(c => c.phone === r.phone); if (i >= 0) list.splice(i, 1);
+        list.unshift({ name, phone: r.phone, message: '', cc: '' });
+        store(list); renderList(); snack('Saved to your contacts');
+      });
+      const open = document.createElement('button');
+      open.className = 'icon-btn sm ripple'; open.title = 'Open chat'; open.setAttribute('aria-label', 'Open chat with ' + name); open.innerHTML = ICON.chat;
+      open.addEventListener('click', () => { closeDrawer(); openDialog(name + ' · +' + r.phone, buildUrl(r.phone, '')); });
+      const del = document.createElement('button');
+      del.className = 'icon-btn sm danger ripple'; del.title = 'Remove'; del.setAttribute('aria-label', 'Remove ' + name); del.innerHTML = ICON.del;
+      del.addEventListener('click', () => { leads = leads.filter(x => x.id !== r.id); writeLeads(); updateScanCount(); renderLeads(); });
+      el.append(av, meta, add, open, del);
+      E.list.appendChild(el);
+    });
+  }
+  X.exportAll.addEventListener('click', () => {
+    if (!leads.length) { snack('No scanned contacts to export'); return; }
+    const cards = leads.map(r => vcard((r.name || '').trim(), r.phone)).join('\r\n');
+    const url = URL.createObjectURL(new Blob([cards], { type: 'text/vcard' }));
+    download('scanned-contacts.vcf', url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    snack('Exported ' + leads.length + ' contacts');
+  });
+
+  /* ---------- what a scanner sees ---------- */
+  function initScanner() {
+    const q = new URLSearchParams(location.search);
+    const owner = (q.get('c') || '').replace(/\D/g, '');
+    if (owner.length < 7) return;
+    const ownerName = (q.get('n') || '').trim(), baseMsg = (q.get('m') || '').trim();
+    const topic = q.get('t') || '', pub = q.get('k') || '';
+    const relay = /^https?:\/\//i.test(q.get('r') || '') ? q.get('r').replace(/\/+$/, '') : 'https://ntfy.sh';
+    document.body.classList.add('scanner');
+    const S = { title: $('svTitle'), sub: $('svSub'), name: $('svName'), cc: $('svCc'), num: $('svNum'), hint: $('svHint'), go: $('svGo'), skip: $('svSkip') };
+    S.cc.innerHTML = E.cc.innerHTML;
+    S.title.textContent = ownerName ? 'Chat with ' + ownerName : 'Start a WhatsApp chat';
+    S.sub.textContent = (ownerName || 'They') + ' will get your name and number so they can save your contact. Then WhatsApp opens.';
+    try {
+      const me = JSON.parse(localStorage.getItem('wa-qr-me')) || {};
+      if (me.name) S.name.value = me.name;
+      if (me.cc && [...S.cc.options].some(o => o.value === me.cc)) S.cc.value = me.cc;
+      if (me.num) S.num.value = me.num;
+    } catch (e) {}
+
+    let aborted = false;
+    E.cancel.addEventListener('click', () => { aborted = true; });
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+
+    async function go(share) {
+      let text = baseMsg, full = '', name = S.name.value.trim();
+      S.hint.className = 'hint';
+      if (share) {
+        full = normPhone(S.cc.value, S.num.value);
+        const national = full.length - S.cc.value.length;
+        if (!name || national < 6 || full.length > 15) {
+          S.hint.textContent = !name ? 'Enter your name.' : 'Enter a valid number (6 to 12 digits after the code).';
+          S.hint.classList.add('err');
+          return;
+        }
+        try { localStorage.setItem('wa-qr-me', JSON.stringify({ name, cc: S.cc.value, num: S.num.value })); } catch (e) {}
+        const intro = "Hi, I'm " + name + ' (+' + full + ').';
+        text = baseMsg ? baseMsg + '\n\n' + intro : intro;
+      }
+      aborted = false;
+      E.dlgText.textContent = 'Opening chat with ' + (ownerName || '+' + owner);
+      E.scrim.classList.add('open'); E.scrim.setAttribute('aria-hidden', 'false');
+      let post = Promise.resolve();
+      if (share && topic && pub && window.crypto && crypto.subtle) {
+        post = (async () => {
+          try {
+            const sealed = await sealFor(pub, { name, phone: full });
+            await fetch(relay + '/' + topic, { method: 'POST', body: sealed, keepalive: true });
+          } catch (e) { /* the chat message still carries the details */ }
+        })();
+      }
+      await Promise.all([wait(800), Promise.race([post, wait(3000)])]);
+      if (aborted) return;
+      window.location.href = 'https://wa.me/' + owner + (text ? '?text=' + encodeURIComponent(text) : '');
+    }
+    S.go.addEventListener('click', () => go(true));
+    S.skip.addEventListener('click', () => go(false));
+    [S.name, S.num].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') go(true); }));
+  }
+
+  updateScanCount();
+  if (settings.collect) ensureKeys().then(ok => { if (ok) startListen(); });
+
+  /* ---------- drawer ---------- */
+  function openDrawer() { E.drawer.classList.add('open'); E.veil.classList.add('open'); E.drawer.setAttribute('aria-hidden', 'false'); if (tab === 'scanned') loadLeads(); }
+  function closeDrawer() { E.drawer.classList.remove('open'); E.veil.classList.remove('open'); E.drawer.setAttribute('aria-hidden', 'true'); }
+  E.openSaved.addEventListener('click', openDrawer);
+  E.closeSaved.addEventListener('click', closeDrawer);
+  E.veil.addEventListener('click', closeDrawer);
+
+  /* ---------- actions ---------- */
+  function saveContact() {
+    if (!current) return false;
+    const list = load();
+    const entry = { name: current.name || '+' + current.phone, phone: current.phone, message: current.message, cc: E.cc.value };
+    const i = list.findIndex(c => c.phone === entry.phone);
+    if (i >= 0) list.splice(i, 1);
+    list.unshift(entry);
+    justSaved = entry.phone;
+    const ok = store(list);
+    renderList();
+    retrigger(E.badge, 'bump');
+    return ok;
+  }
+  function download(filename, href) {
+    const a = document.createElement('a');
+    a.href = href; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  function openDialog(label, url) {
+    E.dlgText.textContent = label;
+    E.scrim.classList.add('open'); E.scrim.setAttribute('aria-hidden', 'false');
+    clearTimeout(redirectTimer);
+    redirectTimer = setTimeout(() => { window.location.href = url; }, 900);
+  }
+  function closeDialog() {
+    clearTimeout(redirectTimer);
+    E.scrim.classList.remove('open'); E.scrim.setAttribute('aria-hidden', 'true');
+  }
+  E.cancel.addEventListener('click', closeDialog);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDialog(); closeDrawer(); } });
+
+  E.go.addEventListener('click', () => {
+    if (!current) return;
+    saveContact();
+    openDialog((current.name || '+' + current.phone) + ' · +' + current.phone, current.chatUrl);
+  });
+  E.save.addEventListener('click', () => snack(saveContact() ? 'Contact saved' : 'Could not save in this browser'));
+  E.pill.addEventListener('click', async () => {
+    if (!current) return;
+    try { await navigator.clipboard.writeText(current.url); snack('Link copied'); }
+    catch (e) { snack('Copy failed. Select the link and copy it.'); }
+  });
+  E.dl.addEventListener('click', () => {
+    if (!current) return;
+    const src = E.qr.querySelector('canvas');
+    if (!src) return;
+    const pad = 40, out = document.createElement('canvas');
+    out.width = src.width + pad * 2; out.height = src.height + pad * 2;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(src, pad, pad);
+    download('whatsapp-' + current.phone + '.png', out.toDataURL('image/png'));
+    snack('QR code downloaded');
+  });
+  E.vcf.addEventListener('click', () => {
+    if (!current) return;
+    const fn = (current.name || '+' + current.phone).replace(/[\r\n;,]/g, ' ');
+    const card = ['BEGIN:VCARD', 'VERSION:3.0', 'FN:' + fn, 'N:' + fn + ';;;;', 'TEL;TYPE=CELL:+' + current.phone, 'URL:' + current.chatUrl, 'END:VCARD'].join('\r\n');
+    const url = URL.createObjectURL(new Blob([card], { type: 'text/vcard' }));
+    download(fn.replace(/\s+/g, '_') + '.vcf', url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    snack('Contact card downloaded');
+  });
+
+  /* ---------- saved list ---------- */
+  const ICON = {
+    chat: '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>',
+    del: '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>'
+  };
+  function renderList() {
+    const items = load();
+    E.badge.textContent = items.length;
+    E.badge.classList.toggle('show', items.length > 0);
+    if (tab !== 'saved') return;
+    E.list.innerHTML = '';
+    if (!items.length) {
+      const p = document.createElement('p');
+      p.className = 'empty';
+      p.textContent = 'Nothing saved yet. Saved contacts appear here.';
+      E.list.appendChild(p);
+      return;
+    }
+    items.forEach(c => {
+      const el = document.createElement('div');
+      el.className = 'item' + (c.phone === justSaved ? ' in' : '');
+      const av = document.createElement('div');
+      av.className = 'avatar'; av.style.background = colorFor(c.name);
+      av.textContent = (c.name.replace(/^\+/, '').charAt(0) || '#').toUpperCase();
+      const meta = document.createElement('div');
+      meta.className = 'meta'; meta.title = 'Load into the form';
+      const b = document.createElement('b'); b.textContent = c.name;
+      const s = document.createElement('small'); s.textContent = '+' + c.phone;
+      meta.append(b, s);
+      meta.addEventListener('click', () => {
+        E.name.value = c.name.startsWith('+') ? '' : c.name;
+        if ([...E.cc.options].some(o => o.value === c.cc)) { E.cc.value = c.cc; E.num.value = c.phone.slice(c.cc.length); }
+        else E.num.value = c.phone;
+        E.msg.value = c.message || '';
+        update();
+        closeDrawer();
+      });
+      const open = document.createElement('button');
+      open.className = 'icon-btn sm ripple'; open.title = 'Open chat'; open.setAttribute('aria-label', 'Open chat with ' + c.name);
+      open.innerHTML = ICON.chat;
+      open.addEventListener('click', () => { closeDrawer(); openDialog(c.name + ' · +' + c.phone, buildUrl(c.phone, c.message)); });
+      const del = document.createElement('button');
+      del.className = 'icon-btn sm danger ripple'; del.title = 'Delete'; del.setAttribute('aria-label', 'Delete ' + c.name);
+      del.innerHTML = ICON.del;
+      del.addEventListener('click', () => {
+        el.classList.add('out');
+        setTimeout(() => { store(load().filter(x => x.phone !== c.phone)); renderList(); snack('Contact deleted'); }, 220);
+      });
+      el.append(av, meta, open, del);
+      E.list.appendChild(el);
+    });
+    justSaved = null;
+  }
+
+  ['input', 'change'].forEach(ev => {
+    E.num.addEventListener(ev, update);
+    E.cc.addEventListener(ev, update);
+    E.msg.addEventListener(ev, update);
+  });
+  E.name.addEventListener('input', () => { if (current) current.name = E.name.value.trim(); if (X.collect.checked) update(); });
+  window.addEventListener('pageshow', closeDialog); // back button from WhatsApp
+
+  renderList();
+  reset();
+  initScanner();
+})();
+</script>
+</body>
+</html>
